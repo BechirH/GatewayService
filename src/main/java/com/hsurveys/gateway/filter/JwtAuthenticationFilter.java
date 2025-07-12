@@ -38,6 +38,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+        logger.debug("Authenticating request for path: {}", path);
+
         // Extract token from Authorization header or cookies
         String token = extractTokenFromRequest(request);
         

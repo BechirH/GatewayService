@@ -48,6 +48,13 @@ public class GatewayController {
                 fullUrl += "?" + queryString;
             }
 
+            // Debug logging for request body
+            System.out.println("Gateway - Request URI: " + requestURI);
+            System.out.println("Gateway - Request method: " + request.getMethod());
+            System.out.println("Gateway - Request body: " + (body != null ? body : "[null]"));
+            System.out.println("Gateway - Content-Type: " + request.getContentType());
+            System.out.println("Gateway - Content-Length: " + request.getContentLength());
+
             HttpHeaders headers = new HttpHeaders();
             
             // Copy all original headers
