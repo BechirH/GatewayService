@@ -3,92 +3,98 @@ package com.hsurveys.gateway.filter;
 import com.hsurveys.gateway.utils.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cloud.gateway.filter.GatewayFilter;
-import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
-import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.core.io.buffer.DataBufferUtils;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ServerWebExchange;
-import reactor.core.publisher.Mono;
+import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.nio.charset.StandardCharsets;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
 @Component
-public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private final JwtUtil jwtUtil;
 
     public JwtAuthenticationFilter(JwtUtil jwtUtil) {
-        super(Config.class);
         this.jwtUtil = jwtUtil;
     }
 
     @Override
-    public GatewayFilter apply(Config config) {
-        return (exchange, chain) -> {
-            ServerHttpRequest request = exchange.getRequest();
-            String path = request.getPath().value();
-            
-            logger.debug("Processing request: {}", path);
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+        
+        String path = request.getRequestURI();
+        logger.debug("Processing request: {}", path);
 
-            // Skip authentication for auth endpoints
-            if (isAuthEndpoint(path)) {
-                logger.debug("Skipping authentication for auth endpoint: {}", path);
-                return chain.filter(exchange);
+        // Skip authentication for auth endpoints
+        if (isAuthEndpoint(path)) {
+            logger.debug("Skipping authentication for auth endpoint: {}", path);
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Extract token from Authorization header or cookies
+        String token = extractTokenFromRequest(request);
+        
+        if (token == null) {
+            logger.warn("No token found in request: {}", path);
+            sendUnauthorizedResponse(response, "No authentication token found");
+            return;
+        }
+
+        try {
+            // Validate token
+            if (!jwtUtil.validateToken(token)) {
+                logger.warn("Invalid token for request: {}", path);
+                sendUnauthorizedResponse(response, "Invalid authentication token");
+                return;
             }
 
-            // Extract token from Authorization header or cookies
-            String token = extractTokenFromRequest(request);
-            
-            if (token == null) {
-                logger.warn("No token found in request: {}", path);
-                return unauthorizedResponse(exchange, "No authentication token found");
+            // Extract user information
+            String username = jwtUtil.extractUsername(token);
+            UUID userId = jwtUtil.extractUserId(token);
+            UUID organizationId = jwtUtil.extractOrganizationId(token);
+            UUID departmentId = jwtUtil.extractDepartmentId(token);
+            UUID teamId = jwtUtil.extractTeamId(token);
+            List<String> authorities = jwtUtil.extractAuthorities(token);
+
+            logger.debug("Token validated for user: {} in organization: {}", username, organizationId);
+
+            // Add user context to request headers for downstream services
+            if (userId != null) {
+                request.setAttribute("X-User-Id", userId.toString());
             }
-
-            try {
-                // Validate token
-                if (!jwtUtil.validateToken(token)) {
-                    logger.warn("Invalid token for request: {}", path);
-                    return unauthorizedResponse(exchange, "Invalid authentication token");
-                }
-
-                // Extract user information
-                String username = jwtUtil.extractUsername(token);
-                UUID userId = jwtUtil.extractUserId(token);
-                UUID organizationId = jwtUtil.extractOrganizationId(token);
-                UUID departmentId = jwtUtil.extractDepartmentId(token);
-                UUID teamId = jwtUtil.extractTeamId(token);
-                List<String> authorities = jwtUtil.extractAuthorities(token);
-
-                logger.debug("Token validated for user: {} in organization: {}", username, organizationId);
-
-                // Add user context to request headers for downstream services
-                ServerHttpRequest modifiedRequest = request.mutate()
-                        .header("X-User-Id", userId != null ? userId.toString() : "")
-                        .header("X-Username", username != null ? username : "")
-                        .header("X-User-Name", username != null ? username : "") // For Organization service
-                        .header("X-Organization-Id", organizationId != null ? organizationId.toString() : "")
-                        .header("X-Department-Id", departmentId != null ? departmentId.toString() : "")
-                        .header("X-Team-Id", teamId != null ? teamId.toString() : "")
-                        .header("X-Authorities", String.join(",", authorities))
-                        .header("X-User-Authorities", String.join(",", authorities)) // For Organization service
-                        .header("X-Authenticated", "true")
-                        .build();
-
-                return chain.filter(exchange.mutate().request(modifiedRequest).build());
-
-            } catch (Exception e) {
-                logger.error("Error processing token for request: {}", path, e);
-                return unauthorizedResponse(exchange, "Token processing error");
+            if (username != null) {
+                request.setAttribute("X-Username", username);
+                request.setAttribute("X-User-Name", username); // For Organization service
             }
-        };
+            if (organizationId != null) {
+                request.setAttribute("X-Organization-Id", organizationId.toString());
+            }
+            if (departmentId != null) {
+                request.setAttribute("X-Department-Id", departmentId.toString());
+            }
+            if (teamId != null) {
+                request.setAttribute("X-Team-Id", teamId.toString());
+            }
+            if (authorities != null && !authorities.isEmpty()) {
+                String authoritiesStr = String.join(",", authorities);
+                request.setAttribute("X-Authorities", authoritiesStr);
+                request.setAttribute("X-User-Authorities", authoritiesStr); // For Organization service
+            }
+            request.setAttribute("X-Authenticated", "true");
+
+            filterChain.doFilter(request, response);
+
+        } catch (Exception e) {
+            logger.error("Error processing token for request: {}", path, e);
+            sendUnauthorizedResponse(response, "Token processing error");
+        }
     }
 
     private boolean isAuthEndpoint(String path) {
@@ -104,27 +110,21 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                path.startsWith("/api/teams/user/");
     }
 
-    private String extractTokenFromRequest(ServerHttpRequest request) {
+    private String extractTokenFromRequest(HttpServletRequest request) {
         // First, try to get token from Authorization header
-        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
 
         // If not found in header, try to get from cookies
-        List<String> cookies = request.getHeaders().get(HttpHeaders.COOKIE);
+        String cookies = request.getHeader("Cookie");
         if (cookies != null) {
-            for (String cookie : cookies) {
-                if (cookie.contains("access_token=")) {
-                    String[] parts = cookie.split("access_token=");
-                    if (parts.length > 1) {
-                        String tokenPart = parts[1];
-                        // Remove any additional cookie parameters
-                        if (tokenPart.contains(";")) {
-                            tokenPart = tokenPart.split(";")[0];
-                        }
-                        return tokenPart;
-                    }
+            String[] cookieArray = cookies.split(";");
+            for (String cookie : cookieArray) {
+                cookie = cookie.trim();
+                if (cookie.startsWith("access_token=")) {
+                    return cookie.substring("access_token=".length());
                 }
             }
         }
@@ -132,17 +132,12 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
         return null;
     }
 
-    private Mono<Void> unauthorizedResponse(ServerWebExchange exchange, String message) {
-        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-        exchange.getResponse().getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+    private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         
         String responseBody = String.format("{\"error\": \"Unauthorized\", \"message\": \"%s\"}", message);
-        DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(responseBody.getBytes(StandardCharsets.UTF_8));
-        
-        return exchange.getResponse().writeWith(Mono.just(buffer));
-    }
-
-    public static class Config {
-        // Configuration properties if needed
+        response.getWriter().write(responseBody);
     }
 } 
