@@ -27,19 +27,8 @@ public class JwtUtil {
         this.signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
     }
 
-    public String generateToken(String username, UUID userId, UUID organizationId, UUID departmentId, UUID teamId, List<String> authorities) {
-        return Jwts.builder()
-                .subject(username)
-                .claim("userId", userId != null ? userId.toString() : null)
-                .claim("organizationId", organizationId != null ? organizationId.toString() : null)
-                .claim("departmentId", departmentId != null ? departmentId.toString() : null)
-                .claim("teamId", teamId != null ? teamId.toString() : null)
-                .claim("authorities", authorities)
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(signingKey, SignatureAlgorithm.HS256)
-                .compact();
-    }
+    // JWT token generation is handled by User Management service only
+    // Gateway only validates tokens and extracts user context
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -126,6 +115,8 @@ public class JwtUtil {
 
     public Boolean validateToken(String token) {
         try {
+            // Gateway only validates token expiration and signature
+            // User details validation is handled by User Management service
             return !isTokenExpired(token);
         } catch (Exception e) {
             return false;

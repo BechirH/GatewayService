@@ -28,6 +28,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         
+        // Gateway only validates JWT tokens and extracts user context
+        // Token generation is handled by User Management service
         String path = request.getRequestURI();
         logger.debug("Processing request: {}", path);
 
