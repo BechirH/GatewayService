@@ -20,22 +20,22 @@ public class GatewayController {
     private RestTemplate restTemplate;
 
     private static final String USER_SERVICE_URL = "http://localhost:8081";
-    private static final String SURVEY_SERVICE_URL = "http://localhost:8082";
-    private static final String ORGANIZATION_SERVICE_URL = "http://localhost:8083";
+    private static final String ORGANIZATION_SERVICE_URL = "http://localhost:8082";
+    private static final String SURVEY_SERVICE_URL = "http://localhost:8083";
 
     @RequestMapping(value = {"/users/**", "/auth/**", "/roles/**", "/permissions/**"}, method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE})
     public ResponseEntity<String> routeToUserService(HttpServletRequest request, @RequestBody(required = false) String body) {
         return routeRequest(request, USER_SERVICE_URL, body);
     }
 
-    @RequestMapping(value = {"/surveys/**", "/questions/**", "/options/**"}, method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE})
-    public ResponseEntity<String> routeToSurveyService(HttpServletRequest request, @RequestBody(required = false) String body) {
-        return routeRequest(request, SURVEY_SERVICE_URL, body);
-    }
-
     @RequestMapping(value = {"/organizations/**", "/departments/**", "/teams/**"}, method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE})
     public ResponseEntity<String> routeToOrganizationService(HttpServletRequest request, @RequestBody(required = false) String body) {
         return routeRequest(request, ORGANIZATION_SERVICE_URL, body);
+    }
+
+    @RequestMapping(value = {"/surveys/**", "/questions/**", "/options/**"}, method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE})
+    public ResponseEntity<String> routeToSurveyService(HttpServletRequest request, @RequestBody(required = false) String body) {
+        return routeRequest(request, SURVEY_SERVICE_URL, body);
     }
 
     private ResponseEntity<String> routeRequest(HttpServletRequest request, String baseUrl, String body) {
