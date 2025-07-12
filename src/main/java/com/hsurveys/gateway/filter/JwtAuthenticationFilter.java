@@ -73,10 +73,12 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 ServerHttpRequest modifiedRequest = request.mutate()
                         .header("X-User-Id", userId != null ? userId.toString() : "")
                         .header("X-Username", username != null ? username : "")
+                        .header("X-User-Name", username != null ? username : "") // For Organization service
                         .header("X-Organization-Id", organizationId != null ? organizationId.toString() : "")
                         .header("X-Department-Id", departmentId != null ? departmentId.toString() : "")
                         .header("X-Team-Id", teamId != null ? teamId.toString() : "")
                         .header("X-Authorities", String.join(",", authorities))
+                        .header("X-User-Authorities", String.join(",", authorities)) // For Organization service
                         .header("X-Authenticated", "true")
                         .build();
 
@@ -94,7 +96,12 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                path.startsWith("/api/auth/register") ||
                path.startsWith("/api/auth/refresh") ||
                path.startsWith("/api/users/") && path.contains("/exists") ||
-               path.startsWith("/api/users/bulk");
+               path.startsWith("/api/users/bulk") ||
+               path.startsWith("/api/organizations") && path.contains("/exists") ||
+               path.startsWith("/api/departments/") && path.contains("/exists") ||
+               path.startsWith("/api/teams/") && path.contains("/exists") ||
+               path.startsWith("/api/departments/user/") ||
+               path.startsWith("/api/teams/user/");
     }
 
     private String extractTokenFromRequest(ServerHttpRequest request) {
