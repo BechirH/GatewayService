@@ -19,9 +19,10 @@ public class GatewayController {
     @Autowired
     private RestTemplate restTemplate;
 
-    private static final String USER_SERVICE_URL = "http://localhost:8081";
-    private static final String ORGANIZATION_SERVICE_URL = "http://localhost:8082";
-    private static final String SURVEY_SERVICE_URL = "http://localhost:8083";
+    // Use Docker service names for container-to-container communication
+    private static final String USER_SERVICE_URL = "http://user-service:8080";
+    private static final String ORGANIZATION_SERVICE_URL = "http://organization-service:8080";
+    private static final String SURVEY_SERVICE_URL = "http://survey-service:8080";
 
     @RequestMapping(value = {"/users/**", "/auth/**", "/roles/**", "/permissions/**"}, method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE})
     public ResponseEntity<String> routeToUserService(HttpServletRequest request, @RequestBody(required = false) String body) {
