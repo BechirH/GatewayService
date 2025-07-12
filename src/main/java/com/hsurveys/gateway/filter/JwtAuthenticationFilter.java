@@ -107,13 +107,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return path.startsWith("/api/auth/login") ||
                path.startsWith("/api/auth/register") ||
                path.startsWith("/api/auth/refresh") ||
-               path.startsWith("/api/users/") && path.contains("/exists") ||
-               path.startsWith("/api/users/bulk") ||
-               path.startsWith("/api/organizations") ||
-               path.startsWith("/api/departments/") && path.contains("/exists") ||
-               path.startsWith("/api/teams/") && path.contains("/exists") ||
-               path.startsWith("/api/departments/user/") ||
-               path.startsWith("/api/teams/user/");
+               path.startsWith("/api/organizations/register");
     }
 
     private String extractTokenFromRequest(HttpServletRequest request) {
