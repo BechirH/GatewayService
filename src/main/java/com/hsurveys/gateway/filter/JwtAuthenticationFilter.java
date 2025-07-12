@@ -31,9 +31,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         logger.debug("Processing request: {}", path);
 
-        // Skip authentication for auth endpoints
-        if (isAuthEndpoint(path)) {
-            logger.debug("Skipping authentication for auth endpoint: {}", path);
+        // Skip authentication for public endpoints
+        if (isPublicEndpoint(path)) {
+            logger.debug("Skipping authentication for public endpoint: {}", path);
             filterChain.doFilter(request, response);
             return;
         }
@@ -103,7 +103,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    private boolean isAuthEndpoint(String path) {
+    private boolean isPublicEndpoint(String path) {
         return path.startsWith("/api/auth/login") ||
                path.startsWith("/api/auth/register") ||
                path.startsWith("/api/auth/refresh") ||
