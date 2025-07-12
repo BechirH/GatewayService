@@ -62,6 +62,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UUID departmentId = jwtUtil.extractDepartmentId(token);
             UUID teamId = jwtUtil.extractTeamId(token);
             List<String> authorities = jwtUtil.extractAuthorities(token);
+            List<String> roles = jwtUtil.extractRoles(token);
 
             logger.debug("Token validated for user: {} in organization: {}", username, organizationId);
 
@@ -86,6 +87,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String authoritiesStr = String.join(",", authorities);
                 request.setAttribute("X-Authorities", authoritiesStr);
                 request.setAttribute("X-User-Authorities", authoritiesStr); // For Organization service
+            }
+            if (roles != null && !roles.isEmpty()) {
+                String rolesStr = String.join(",", roles);
+                request.setAttribute("X-Roles", rolesStr);
+                request.setAttribute("X-User-Roles", rolesStr); // For Organization service
             }
             request.setAttribute("X-Authenticated", "true");
 

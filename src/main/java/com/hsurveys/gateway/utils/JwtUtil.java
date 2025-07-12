@@ -96,6 +96,17 @@ public class JwtUtil {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public List<String> extractRoles(String token) {
+        try {
+            Claims claims = getAllClaimsFromToken(token);
+            List<String> roles = (List<String>) claims.get("roles");
+            return roles != null ? roles : List.of();
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }

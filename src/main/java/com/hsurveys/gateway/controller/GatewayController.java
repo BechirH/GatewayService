@@ -67,6 +67,8 @@ public class GatewayController {
             String teamId = (String) request.getAttribute("X-Team-Id");
             String authorities = (String) request.getAttribute("X-Authorities");
             String userAuthorities = (String) request.getAttribute("X-User-Authorities");
+            String roles = (String) request.getAttribute("X-Roles");
+            String userRoles = (String) request.getAttribute("X-User-Roles");
             String authenticated = (String) request.getAttribute("X-Authenticated");
 
             if (userId != null) {
@@ -92,6 +94,12 @@ public class GatewayController {
             }
             if (userAuthorities != null) {
                 headers.add("X-User-Authorities", userAuthorities);
+            }
+            if (roles != null) {
+                headers.add("X-Roles", roles);
+            }
+            if (userRoles != null) {
+                headers.add("X-User-Roles", userRoles);
             }
             if (authenticated != null) {
                 headers.add("X-Authenticated", authenticated);
