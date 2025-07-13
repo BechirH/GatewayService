@@ -18,7 +18,8 @@ spring:
               args:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
-        
+            - name: JwtAuthentication  # Changed from JwtAuthenticationGatewayFilterFactory
+
         # Organization Service Routes
         - id: organization-service
           uri: http://organization-service:8080
@@ -33,7 +34,8 @@ spring:
               args:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
-        
+            - name: JwtAuthentication  # Changed from JwtAuthenticationGatewayFilterFactory
+
         # Survey Service Routes
         - id: survey-service
           uri: http://survey-service:8080
@@ -48,22 +50,13 @@ spring:
               args:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
-      
-      default-filters:
-        - name: JwtAuthenticationGatewayFilterFactory
-        - name: AddRequestHeader
-          args:
-            name: X-Gateway-Source
-            value: hsurveys-gateway
-        - name: AddResponseHeader
-          args:
-            name: X-Gateway-Timestamp
-            value: "#{T(java.time.Instant).now().toString()}"
-      
+            - name: JwtAuthentication  # Changed from JwtAuthenticationGatewayFilterFactory
+
+      # Remove the default-filters section as it's causing the issue
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOriginPatterns: 
+            allowedOriginPatterns:
               - "http://localhost:3000"
             allowedMethods:
               - GET
@@ -114,7 +107,7 @@ resilience4j:
         waitDurationInOpenState: 5s
         failureRateThreshold: 50
         eventConsumerBufferSize: 10
-  
+
   timelimiter:
     instances:
       user-service:
@@ -129,7 +122,7 @@ redis:
   host: ${REDIS_HOST:localhost}
   port: ${REDIS_PORT:6379}
   password: ${REDIS_PASSWORD:}
-  
+
 # Rate Limiting Configuration
 rate-limit:
   replenish-rate: 10
@@ -155,4 +148,4 @@ logging:
     org.springframework.cloud.gateway: DEBUG
     reactor.netty: DEBUG
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n" 
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
