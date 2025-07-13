@@ -18,7 +18,13 @@ spring:
               args:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
-        
+            - name: JwtAuthentication
+            # Add DedupeResponseHeader to remove duplicate CORS headers
+            - name: DedupeResponseHeader
+              args:
+                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+                strategy: RETAIN_FIRST
+
         # Organization Service Routes
         - id: organization-service
           uri: http://organization-service:8080
@@ -33,7 +39,12 @@ spring:
               args:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
-        
+            - name: JwtAuthentication
+            - name: DedupeResponseHeader
+              args:
+                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+                strategy: RETAIN_FIRST
+
         # Survey Service Routes
         - id: survey-service
           uri: http://survey-service:8080
@@ -48,22 +59,23 @@ spring:
               args:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
-      
+            - name: JwtAuthentication
+            - name: DedupeResponseHeader
+              args:
+                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+                strategy: RETAIN_FIRST
+
+      # Alternative: Use global default filters for all routes
       default-filters:
-        - name: JwtAuthenticationGatewayFilterFactory
-        - name: AddRequestHeader
+        - name: DedupeResponseHeader
           args:
-            name: X-Gateway-Source
-            value: hsurveys-gateway
-        - name: AddResponseHeader
-          args:
-            name: X-Gateway-Timestamp
-            value: "#{T(java.time.Instant).now().toString()}"
-      
+            name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+            strategy: RETAIN_FIRST
+
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOriginPatterns: 
+            allowedOriginPatterns:
               - "http://localhost:3000"
             allowedMethods:
               - GET
@@ -80,7 +92,7 @@ server:
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:bXlfc3VwZXJfc2VjcmV0X2tleV9mb3JfaHN1cnZleXNfZ2F0ZXdheV9zZXJ2aWNl}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:900000}
 
 # Circuit Breaker Configuration
@@ -114,7 +126,7 @@ resilience4j:
         waitDurationInOpenState: 5s
         failureRateThreshold: 50
         eventConsumerBufferSize: 10
-  
+
   timelimiter:
     instances:
       user-service:
@@ -129,7 +141,7 @@ redis:
   host: ${REDIS_HOST:localhost}
   port: ${REDIS_PORT:6379}
   password: ${REDIS_PASSWORD:}
-  
+
 # Rate Limiting Configuration
 rate-limit:
   replenish-rate: 10
@@ -155,4 +167,4 @@ logging:
     org.springframework.cloud.gateway: DEBUG
     reactor.netty: DEBUG
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n" 
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"

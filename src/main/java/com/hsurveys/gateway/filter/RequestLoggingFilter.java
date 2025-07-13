@@ -86,6 +86,6 @@ public class RequestLoggingFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return -1; // Execute before other filters
+        return -1;
     }
 } 
