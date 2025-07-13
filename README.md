@@ -1,81 +1,237 @@
-# API Gateway - Centralized Security
+# HSurveys Gateway Service
 
-This is the centralized API Gateway for the Hsurveys microservices architecture. It handles JWT token validation and user context propagation to downstream services.
+This is the API Gateway service for the HSurveys microservices architecture, built using Spring Cloud Gateway.
+
+## Features
+
+- **JWT Authentication**: Validates JWT tokens and extracts user context
+- **Route Management**: Routes requests to appropriate microservices
+- **Circuit Breaker**: Implements resilience patterns using Resilience4j
+- **Rate Limiting**: Redis-based rate limiting with configurable policies
+- **CORS Support**: Cross-origin resource sharing configuration
+- **Request Logging**: Comprehensive request/response logging with correlation IDs
+- **Health Checks**: Actuator endpoints for monitoring
+- **Fallback Handling**: Graceful degradation when services are unavailable
 
 ## Architecture
 
-### Centralized Security Flow
+The gateway routes requests to three main services:
 
-1. **Client Request** → Gateway (Port 8080)
-2. **Gateway** validates JWT token (from Authorization header or cookies)
-3. **Gateway** extracts user context and adds to request headers
-4. **Gateway** routes to appropriate microservice with user context
-5. **Microservice** reads user context from headers (no JWT validation needed)
+- **User Service**: `/api/users/**`, `/api/auth/**`, `/api/roles/**`, `/api/permissions/**`
+- **Organization Service**: `/api/organizations/**`, `/api/departments/**`, `/api/teams/**`
+- **Survey Service**: `/api/surveys/**`, `/api/questions/**`, `/api/options/**`
 
-### Request Headers Added by Gateway
+## Configuration
 
-- `X-User-Id`: User's unique identifier
-- `X-Username`: User's email/username
-- `X-Organization-Id`: User's organization context
-- `X-Department-Id`: User's department context (optional)
-- `X-Team-Id`: User's team context (optional)
-- `X-Authorities`: Comma-separated list of user permissions
-- `X-Authenticated`: "true" to indicate successful authentication
+### Environment Variables
 
-## Routes Configuration
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `JWT_SECRET` | JWT signing secret | Base64 encoded default |
+| `JWT_EXPIRATION` | JWT expiration time (ms) | 900000 (15 minutes) |
+| `REDIS_HOST` | Redis server host | localhost |
+| `REDIS_PORT` | Redis server port | 6379 |
+| `REDIS_PASSWORD` | Redis password | (empty) |
 
-### User Management Service (Port 8081)
-- `/api/users/**` - User management endpoints
-- `/api/auth/**` - Authentication endpoints
-- `/api/roles/**` - Role management endpoints
-- `/api/permissions/**` - Permission management endpoints
+### Rate Limiting
 
-### Survey Management Service (Port 8082)
-- `/api/surveys/**` - Survey management endpoints
-- `/api/questions/**` - Question management endpoints
-- `/api/options/**` - Option management endpoints
+- **Replenish Rate**: 10 requests per second
+- **Burst Capacity**: 20 requests
+- **Requested Tokens**: 1 per request
 
-### Organization Management Service (Port 8083)
-- `/api/organizations/**` - Organization management endpoints
-- `/api/departments/**` - Department management endpoints
-- `/api/teams/**` - Team management endpoints
+### Circuit Breaker Settings
 
-## Authentication Endpoints (Bypassed)
+- **Sliding Window Size**: 10 calls
+- **Minimum Calls**: 5 calls before circuit breaker activates
+- **Failure Rate Threshold**: 50%
+- **Wait Duration**: 5 seconds in open state
 
-The following endpoints bypass JWT validation:
+## Public Endpoints
+
+The following endpoints bypass JWT authentication:
+
 - `/api/auth/login`
 - `/api/auth/register`
 - `/api/auth/refresh`
-- `/api/users/*/exists`
-- `/api/users/bulk`
+- `/api/organizations/register`
+- `/actuator/**`
 
-## Running the Gateway
+## User Context Headers
+
+When a valid JWT token is provided, the gateway adds the following headers to downstream requests:
+
+- `X-User-Id`: User's unique identifier
+- `X-Username`: User's username
+- `X-User-Name`: User's display name
+- `X-Organization-Id`: User's organization ID
+- `X-Department-Id`: User's department ID
+- `X-Team-Id`: User's team ID
+- `X-Authorities`: User's authorities (comma-separated)
+- `X-Roles`: User's roles (comma-separated)
+- `X-Authenticated`: Always "true"
+
+## Monitoring
+
+### Actuator Endpoints
+
+- `/actuator/health`: Health check with circuit breaker status
+- `/actuator/info`: Application information
+- `/actuator/metrics`: Application metrics
+- `/actuator/prometheus`: Prometheus metrics
+- `/actuator/circuitbreakers`: Circuit breaker status
+- `/actuator/gateway`: Gateway route information
+
+### Logging
+
+The gateway provides structured logging with:
+- Correlation IDs for request tracing
+- Request/response timing
+- Error logging with stack traces
+- Debug logging for JWT processing
+
+## Building and Running
+
+### Prerequisites
+
+- Java 17
+- Maven 3.8+
+- Redis (for rate limiting)
+
+### Local Development
 
 ```bash
-mvn spring-boot:run
+# Build the project
+mvn clean package
+
+# Run with default configuration
+java -jar target/gateway-0.0.1-SNAPSHOT.jar
+
+# Run with custom configuration
+java -jar target/gateway-0.0.1-SNAPSHOT.jar \
+  --spring.profiles.active=dev \
+  --jwt.secret=your-secret \
+  --redis.host=localhost
 ```
 
-The gateway will start on port 8080.
+### Docker
+
+```bash
+# Build Docker image
+docker build -t hsurveys-gateway .
+
+# Run with Docker Compose
+docker-compose up gateway
+```
+
+### Docker Compose Example
+
+```yaml
+version: '3.8'
+services:
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - JWT_SECRET=your-jwt-secret
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+      - user-service
+      - organization-service
+      - survey-service
+  
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+  
+  user-service:
+    image: hsurveys-user-service
+    ports:
+      - "8081:8080"
+  
+  organization-service:
+    image: hsurveys-organization-service
+    ports:
+      - "8082:8080"
+  
+  survey-service:
+    image: hsurveys-survey-service
+    ports:
+      - "8083:8080"
+```
 
 ## Testing
 
-### Login Flow
-1. POST `/api/auth/login` (bypasses gateway validation)
-2. Gateway receives response with cookies
-3. Subsequent requests include cookies
-4. Gateway validates JWT and adds user context headers
+### Health Check
 
-### Protected Endpoint Flow
-1. Client sends request with Authorization header or cookies
-2. Gateway validates JWT token
-3. Gateway adds user context headers
-4. Request routed to appropriate microservice
-5. Microservice reads user context from headers
+```bash
+curl http://localhost:8080/actuator/health
+```
 
-## Benefits
+### Authentication Test
 
-1. **Single Point of Authentication**: All JWT validation happens in gateway
-2. **Cookie Domain Issues Resolved**: Gateway handles cookies, microservices use headers
-3. **Simplified Microservices**: No JWT validation logic needed in individual services
-4. **Centralized Security**: Security policies managed in one place
-5. **Better Performance**: Microservices don't need to validate tokens 
+```bash
+# Public endpoint (no auth required)
+curl http://localhost:8080/api/auth/login
+
+# Protected endpoint (auth required)
+curl -H "Authorization: Bearer your-jwt-token" \
+     http://localhost:8080/api/users/profile
+```
+
+### Rate Limiting Test
+
+```bash
+# Test rate limiting
+for i in {1..25}; do
+  curl -H "Authorization: Bearer your-jwt-token" \
+       http://localhost:8080/api/users/profile
+  echo "Request $i"
+done
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Circuit Breaker Open**: Check if downstream services are running
+2. **Rate Limiting**: Monitor Redis connection and configuration
+3. **JWT Validation**: Verify JWT secret and token format
+4. **CORS Issues**: Check allowed origins in configuration
+
+### Debug Mode
+
+Enable debug logging by setting:
+
+```yaml
+logging:
+  level:
+    com.hsurveys.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+```
+
+## Security Considerations
+
+- JWT tokens are validated for expiration and signature
+- Rate limiting prevents abuse
+- CORS is configured for specific origins
+- Circuit breakers prevent cascading failures
+- All sensitive configuration uses environment variables
+
+## Performance
+
+- Reactive programming with WebFlux
+- Non-blocking I/O
+- Connection pooling for downstream services
+- Redis caching for rate limiting
+- Efficient JWT validation
+
+## Contributing
+
+1. Follow the existing code style
+2. Add tests for new features
+3. Update documentation
+4. Ensure all endpoints are properly configured
+5. Test with the full microservices stack 
