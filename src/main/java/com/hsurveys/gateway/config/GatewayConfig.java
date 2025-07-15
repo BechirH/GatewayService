@@ -56,7 +56,7 @@ public class GatewayConfig {
     @Primary
     public KeyResolver userKeyResolver() {
         return exchange -> {
-            // Rate limit by user ID if available, otherwise by IP
+           
             String userId = exchange.getRequest().getHeaders().getFirst("X-User-Id");
             if (userId != null) {
                 return Mono.just(userId);

@@ -19,7 +19,6 @@ spring:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
             - name: JwtAuthentication
-            # Add DedupeResponseHeader to remove duplicate CORS headers
             - name: DedupeResponseHeader
               args:
                 name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
@@ -65,7 +64,6 @@ spring:
                 name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
                 strategy: RETAIN_FIRST
 
-      # Alternative: Use global default filters for all routes
       default-filters:
         - name: DedupeResponseHeader
           args:
@@ -136,7 +134,7 @@ resilience4j:
       survey-service:
         timeoutDuration: 4s
 
-# Redis Configuration (for rate limiting)
+# Redis Configuration 
 redis:
   host: ${REDIS_HOST:localhost}
   port: ${REDIS_PORT:6379}
@@ -163,29 +161,22 @@ management:
 # Logging Configuration
 logging:
   level:
-    # Keep your application logs at DEBUG for useful debugging
     com.hsurveys.gateway: DEBUG
 
-    # Reduce Spring Cloud Gateway noise to WARN (only show problems)
     org.springframework.cloud.gateway: WARN
 
-    # Silence the noisy Netty connection logs completely
     reactor.netty: WARN
     reactor.netty.resources: WARN
     reactor.netty.http.client: WARN
     reactor.netty.http.server: WARN
 
-    # Silence connection pool logs specifically
     reactor.netty.resources.DefaultPooledConnectionProvider: WARN
 
-    # Keep circuit breaker logs useful
     io.github.resilience4j: INFO
-
-    # Keep Spring Boot essentials
+  
     org.springframework.boot: INFO
     org.springframework.web: INFO
 
-    # Root logger - catch anything else
     root: INFO
 
   pattern:

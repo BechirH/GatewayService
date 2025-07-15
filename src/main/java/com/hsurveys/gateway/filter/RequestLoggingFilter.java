@@ -27,7 +27,7 @@ public class RequestLoggingFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         ServerHttpResponse response = exchange.getResponse();
         
-        // Generate or extract correlation ID
+      
         String correlationId = request.getHeaders().getFirst(CORRELATION_ID_HEADER);
         if (correlationId == null) {
             correlationId = UUID.randomUUID().toString();
@@ -35,20 +35,20 @@ public class RequestLoggingFilter implements GlobalFilter, Ordered {
         
         final String finalCorrelationId = correlationId;
         
-        // Add correlation ID to response headers
+        
         response.getHeaders().add(CORRELATION_ID_HEADER, finalCorrelationId);
         
-        // Add correlation ID to request for downstream services
+       
         ServerHttpRequest mutatedRequest = request.mutate()
             .header(CORRELATION_ID_HEADER, finalCorrelationId)
             .build();
         
-        // Set up MDC for logging
+        
         MDC.put("correlationId", finalCorrelationId);
         MDC.put("requestMethod", request.getMethod().name());
         MDC.put("requestPath", request.getPath().toString());
         
-        // Record request start time
+    
         exchange.getAttributes().put(REQUEST_START_TIME, Instant.now());
         
         logger.info("Gateway Request - Method: {}, Path: {}, Headers: {}", 

@@ -35,13 +35,13 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
             
             logger.debug("Processing request: {}", path);
 
-            // Skip authentication for public endpoints
+          
             if (isPublicEndpoint(path)) {
                 logger.debug("Skipping authentication for public endpoint: {}", path);
                 return chain.filter(exchange);
             }
 
-            // Extract token from request
+            
             String token = extractTokenFromRequest(request);
             
             if (token == null) {
@@ -50,13 +50,13 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
             }
 
             try {
-                // Validate token
+            
                 if (!jwtUtil.validateToken(token)) {
                     logger.warn("Invalid token for request: {}", path);
                     return onError(exchange, "Invalid authentication token", HttpStatus.UNAUTHORIZED);
                 }
 
-                // Extract user information from token
+               
                 String username = jwtUtil.extractUsername(token);
                 UUID userId = jwtUtil.extractUserId(token);
                 UUID organizationId = jwtUtil.extractOrganizationId(token);
@@ -67,7 +67,7 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
 
                 logger.debug("Token validated for user: {} in organization: {}", username, organizationId);
 
-                // Create mutated request with user context headers
+                
                 ServerHttpRequest mutatedRequest = request.mutate()
                     .headers(httpHeaders -> {
                         if (userId != null) {
@@ -118,13 +118,13 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
     }
 
     private String extractTokenFromRequest(ServerHttpRequest request) {
-        // Try Authorization header first
+      
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
 
-        // Try cookies if no Authorization header
+      
         List<String> cookies = request.getHeaders().get(HttpHeaders.COOKIE);
         if (cookies != null) {
             for (String cookie : cookies) {
