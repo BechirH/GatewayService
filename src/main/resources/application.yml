@@ -160,28 +160,28 @@ management:
     gateway:
       enabled: true
 
- Logging Configuration
+# Logging Configuration
 logging:
   level:
-
+    # Keep your application logs at DEBUG for useful debugging
     com.hsurveys.gateway: DEBUG
 
-
+    # Reduce Spring Cloud Gateway noise to WARN (only show problems)
     org.springframework.cloud.gateway: WARN
 
-
+    # Silence the noisy Netty connection logs completely
     reactor.netty: WARN
     reactor.netty.resources: WARN
     reactor.netty.http.client: WARN
     reactor.netty.http.server: WARN
 
-
+    # Silence connection pool logs specifically
     reactor.netty.resources.DefaultPooledConnectionProvider: WARN
 
-
+    # Keep circuit breaker logs useful
     io.github.resilience4j: INFO
 
-
+    # Keep Spring Boot essentials
     org.springframework.boot: INFO
     org.springframework.web: INFO
 
