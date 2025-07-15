@@ -160,11 +160,33 @@ management:
     gateway:
       enabled: true
 
-# Logging
+ Logging Configuration
 logging:
   level:
+
     com.hsurveys.gateway: DEBUG
-    org.springframework.cloud.gateway: DEBUG
-    reactor.netty: DEBUG
+
+
+    org.springframework.cloud.gateway: WARN
+
+
+    reactor.netty: WARN
+    reactor.netty.resources: WARN
+    reactor.netty.http.client: WARN
+    reactor.netty.http.server: WARN
+
+
+    reactor.netty.resources.DefaultPooledConnectionProvider: WARN
+
+
+    io.github.resilience4j: INFO
+
+
+    org.springframework.boot: INFO
+    org.springframework.web: INFO
+
+    # Root logger - catch anything else
+    root: INFO
+
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId:-}] %logger{36} - %msg%n"
