@@ -27,8 +27,7 @@ public class JwtUtil {
         this.signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
     }
 
-    // JWT token generation is handled by User Management service only
-    // Gateway only validates tokens and extracts user context
+
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -115,8 +114,7 @@ public class JwtUtil {
 
     public Boolean validateToken(String token) {
         try {
-            // Gateway only validates token expiration and signature
-            // User details validation is handled by User Management service
+
             return !isTokenExpired(token);
         } catch (Exception e) {
             return false;
