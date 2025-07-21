@@ -75,6 +75,7 @@ spring:
           '[/**]':
             allowedOriginPatterns:
               - "http://localhost:3000"
+              - "http://46.62.136.95:3000"
             allowedMethods:
               - GET
               - POST
