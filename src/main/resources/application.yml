@@ -19,10 +19,6 @@ spring:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
             - name: JwtAuthentication
-            - name: DedupeResponseHeader
-              args:
-                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
-                strategy: RETAIN_FIRST
 
         # Organization Service Routes
         - id: organization-service
@@ -39,10 +35,6 @@ spring:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
             - name: JwtAuthentication
-            - name: DedupeResponseHeader
-              args:
-                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
-                strategy: RETAIN_FIRST
 
         # Survey Service Routes
         - id: survey-service
@@ -59,33 +51,8 @@ spring:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
             - name: JwtAuthentication
-            - name: DedupeResponseHeader
-              args:
-                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
-                strategy: RETAIN_FIRST
 
-      default-filters:
-        - name: DedupeResponseHeader
-          args:
-            name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
-            strategy: RETAIN_FIRST
-
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOriginPatterns:
-              - "http://localhost:3000"
-              - "http://46.62.136.95:3000"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - PATCH
-              - OPTIONS
-            allowedHeaders: "*"
-            allowCredentials: true
-            maxAge: 3600
+      # Removed default-filters and globalcors - handled by custom filter
 
 server:
   port: 8080
@@ -136,7 +103,7 @@ resilience4j:
       survey-service:
         timeoutDuration: 4s
 
-# Redis Configuration 
+# Redis Configuration
 redis:
   host: ${REDIS_HOST:localhost}
   port: ${REDIS_PORT:6379}
@@ -144,9 +111,9 @@ redis:
 
 # Rate Limiting Configuration
 rate-limit:
-  replenish-rate: 10
-  burst-capacity: 20
-  requested-tokens: 1
+  replenish-rate: 10  # requests per second
+  burst-capacity: 20  # max requests in bucket
+  requested-tokens: 1 # tokens consumed per request
 
 # Actuator Configuration
 management:
@@ -164,21 +131,15 @@ management:
 logging:
   level:
     com.hsurveys.gateway: DEBUG
-
     org.springframework.cloud.gateway: WARN
-
     reactor.netty: WARN
     reactor.netty.resources: WARN
     reactor.netty.http.client: WARN
     reactor.netty.http.server: WARN
-
     reactor.netty.resources.DefaultPooledConnectionProvider: WARN
-
     io.github.resilience4j: INFO
-  
     org.springframework.boot: INFO
     org.springframework.web: INFO
-
     root: INFO
 
   pattern:
