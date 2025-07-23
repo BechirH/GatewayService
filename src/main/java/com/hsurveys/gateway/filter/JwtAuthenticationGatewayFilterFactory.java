@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -32,31 +33,38 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getURI().getPath();
-            
-            logger.debug("Processing request: {}", path);
+            HttpMethod method = request.getMethod();
 
-          
+            logger.debug("Processing request: {} {}", method, path);
+
+            // IMPORTANT: Skip authentication for OPTIONS requests (CORS preflight)
+            if (HttpMethod.OPTIONS.equals(method)) {
+                logger.debug("Skipping authentication for OPTIONS request: {}", path);
+                return chain.filter(exchange);
+            }
+
+            // Skip authentication for public endpoints
             if (isPublicEndpoint(path)) {
                 logger.debug("Skipping authentication for public endpoint: {}", path);
                 return chain.filter(exchange);
             }
 
-            
+            // Extract and validate token
             String token = extractTokenFromRequest(request);
-            
+
             if (token == null) {
-                logger.warn("No token found in request: {}", path);
+                logger.warn("No token found in request: {} {}", method, path);
                 return onError(exchange, "No authentication token found", HttpStatus.UNAUTHORIZED);
             }
 
             try {
-            
+                // Validate token
                 if (!jwtUtil.validateToken(token)) {
-                    logger.warn("Invalid token for request: {}", path);
+                    logger.warn("Invalid token for request: {} {}", method, path);
                     return onError(exchange, "Invalid authentication token", HttpStatus.UNAUTHORIZED);
                 }
 
-               
+                // Extract user information from token
                 String username = jwtUtil.extractUsername(token);
                 UUID userId = jwtUtil.extractUserId(token);
                 UUID organizationId = jwtUtil.extractOrganizationId(token);
@@ -67,43 +75,43 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
 
                 logger.debug("Token validated for user: {} in organization: {}", username, organizationId);
 
-                
+                // Add user information as headers for downstream services
                 ServerHttpRequest mutatedRequest = request.mutate()
-                    .headers(httpHeaders -> {
-                        if (userId != null) {
-                            httpHeaders.add("X-User-Id", userId.toString());
-                        }
-                        if (username != null) {
-                            httpHeaders.add("X-Username", username);
-                            httpHeaders.add("X-User-Name", username);
-                        }
-                        if (organizationId != null) {
-                            httpHeaders.add("X-Organization-Id", organizationId.toString());
-                        }
-                        if (departmentId != null) {
-                            httpHeaders.add("X-Department-Id", departmentId.toString());
-                        }
-                        if (teamId != null) {
-                            httpHeaders.add("X-Team-Id", teamId.toString());
-                        }
-                        if (authorities != null && !authorities.isEmpty()) {
-                            String authoritiesStr = String.join(",", authorities);
-                            httpHeaders.add("X-Authorities", authoritiesStr);
-                            httpHeaders.add("X-User-Authorities", authoritiesStr);
-                        }
-                        if (roles != null && !roles.isEmpty()) {
-                            String rolesStr = String.join(",", roles);
-                            httpHeaders.add("X-Roles", rolesStr);
-                            httpHeaders.add("X-User-Roles", rolesStr);
-                        }
-                        httpHeaders.add("X-Authenticated", "true");
-                    })
-                    .build();
+                        .headers(httpHeaders -> {
+                            if (userId != null) {
+                                httpHeaders.add("X-User-Id", userId.toString());
+                            }
+                            if (username != null) {
+                                httpHeaders.add("X-Username", username);
+                                httpHeaders.add("X-User-Name", username);
+                            }
+                            if (organizationId != null) {
+                                httpHeaders.add("X-Organization-Id", organizationId.toString());
+                            }
+                            if (departmentId != null) {
+                                httpHeaders.add("X-Department-Id", departmentId.toString());
+                            }
+                            if (teamId != null) {
+                                httpHeaders.add("X-Team-Id", teamId.toString());
+                            }
+                            if (authorities != null && !authorities.isEmpty()) {
+                                String authoritiesStr = String.join(",", authorities);
+                                httpHeaders.add("X-Authorities", authoritiesStr);
+                                httpHeaders.add("X-User-Authorities", authoritiesStr);
+                            }
+                            if (roles != null && !roles.isEmpty()) {
+                                String rolesStr = String.join(",", roles);
+                                httpHeaders.add("X-Roles", rolesStr);
+                                httpHeaders.add("X-User-Roles", rolesStr);
+                            }
+                            httpHeaders.add("X-Authenticated", "true");
+                        })
+                        .build();
 
                 return chain.filter(exchange.mutate().request(mutatedRequest).build());
 
             } catch (Exception e) {
-                logger.error("Error processing token for request: {}", path, e);
+                logger.error("Error processing token for request: {} {}", method, path, e);
                 return onError(exchange, "Token processing error", HttpStatus.UNAUTHORIZED);
             }
         };
@@ -111,20 +119,20 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
 
     private boolean isPublicEndpoint(String path) {
         return path.startsWith("/api/auth/login") ||
-               path.startsWith("/api/auth/register") ||
-               path.startsWith("/api/auth/refresh") ||
-               path.startsWith("/api/organizations/register") ||
-               path.startsWith("/actuator/");
+                path.startsWith("/api/auth/register") ||
+                path.startsWith("/api/auth/refresh") ||
+                path.startsWith("/api/organizations/register") ||
+                path.startsWith("/actuator/");
     }
 
     private String extractTokenFromRequest(ServerHttpRequest request) {
-      
+        // Try Authorization header first
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
 
-      
+        // Try cookies as fallback
         List<String> cookies = request.getHeaders().get(HttpHeaders.COOKIE);
         if (cookies != null) {
             for (String cookie : cookies) {
@@ -146,12 +154,12 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(status);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json");
-        
+
         String body = String.format("{\"error\": \"%s\", \"message\": \"%s\"}", status.getReasonPhrase(), message);
         return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
     }
 
     public static class Config {
-
+        // Configuration properties can be added here if needed
     }
-} 
+}

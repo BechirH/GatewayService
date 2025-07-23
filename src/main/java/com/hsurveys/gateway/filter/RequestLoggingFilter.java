@@ -26,66 +26,66 @@ public class RequestLoggingFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         ServerHttpResponse response = exchange.getResponse();
-        
-      
+
+        // Generate or use existing correlation ID
         String correlationId = request.getHeaders().getFirst(CORRELATION_ID_HEADER);
         if (correlationId == null) {
             correlationId = UUID.randomUUID().toString();
         }
-        
+
         final String finalCorrelationId = correlationId;
-        
-        
+
+        // Add correlation ID to response headers
         response.getHeaders().add(CORRELATION_ID_HEADER, finalCorrelationId);
-        
-       
+
+        // Add correlation ID to request headers for downstream services
         ServerHttpRequest mutatedRequest = request.mutate()
-            .header(CORRELATION_ID_HEADER, finalCorrelationId)
-            .build();
-        
-        
+                .header(CORRELATION_ID_HEADER, finalCorrelationId)
+                .build();
+
+        // Set up MDC for logging
         MDC.put("correlationId", finalCorrelationId);
         MDC.put("requestMethod", request.getMethod().name());
         MDC.put("requestPath", request.getPath().toString());
-        
-    
+
+        // Record start time
         exchange.getAttributes().put(REQUEST_START_TIME, Instant.now());
-        
-        logger.info("Gateway Request - Method: {}, Path: {}, Headers: {}", 
-            request.getMethod(), 
-            request.getPath(),
-            request.getHeaders().toSingleValueMap().keySet());
-        
+
+        logger.info("Gateway Request - Method: {}, Path: {}, Origin: {}",
+                request.getMethod(),
+                request.getPath(),
+                request.getHeaders().getFirst("Origin"));
+
         return chain.filter(exchange.mutate().request(mutatedRequest).build())
-            .doOnSuccess(aVoid -> logResponse(exchange, finalCorrelationId))
-            .doOnError(throwable -> logError(exchange, finalCorrelationId, throwable))
-            .doFinally(signalType -> MDC.clear());
+                .doOnSuccess(aVoid -> logResponse(exchange, finalCorrelationId))
+                .doOnError(throwable -> logError(exchange, finalCorrelationId, throwable))
+                .doFinally(signalType -> MDC.clear());
     }
-    
+
     private void logResponse(ServerWebExchange exchange, String correlationId) {
         ServerHttpResponse response = exchange.getResponse();
         Instant startTime = exchange.getAttribute(REQUEST_START_TIME);
-        long duration = startTime != null ? 
-            Instant.now().toEpochMilli() - startTime.toEpochMilli() : 0;
-        
-        logger.info("Gateway Response - Status: {}, Duration: {}ms, Correlation-ID: {}", 
-            response.getStatusCode(), 
-            duration, 
-            correlationId);
+        long duration = startTime != null ?
+                Instant.now().toEpochMilli() - startTime.toEpochMilli() : 0;
+
+        logger.info("Gateway Response - Status: {}, Duration: {}ms, Correlation-ID: {}",
+                response.getStatusCode(),
+                duration,
+                correlationId);
     }
-    
+
     private void logError(ServerWebExchange exchange, String correlationId, Throwable throwable) {
         ServerHttpRequest request = exchange.getRequest();
-        logger.error("Gateway Error - Method: {}, Path: {}, Correlation-ID: {}, Error: {}", 
-            request.getMethod(), 
-            request.getPath(),
-            correlationId,
-            throwable.getMessage(), 
-            throwable);
+        logger.error("Gateway Error - Method: {}, Path: {}, Correlation-ID: {}, Error: {}",
+                request.getMethod(),
+                request.getPath(),
+                correlationId,
+                throwable.getMessage(),
+                throwable);
     }
 
     @Override
     public int getOrder() {
-        return -1;
+        return -2; // Run after CORS (which is HIGHEST_PRECEDENCE) but before JWT filters
     }
-} 
+}
