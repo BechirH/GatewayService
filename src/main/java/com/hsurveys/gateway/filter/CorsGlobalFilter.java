@@ -37,6 +37,7 @@ public class CorsGlobalFilter implements GlobalFilter, Ordered {
         ServerHttpResponse response = exchange.getResponse();
 
         String origin = request.getHeaders().getFirst(HttpHeaders.ORIGIN);
+        logger.debug("Processing request from origin: {} for path: {}", origin, request.getPath());
 
         // Handle preflight requests
         if (HttpMethod.OPTIONS.equals(request.getMethod())) {
@@ -46,18 +47,16 @@ public class CorsGlobalFilter implements GlobalFilter, Ordered {
             return response.setComplete();
         }
 
-        // For non-preflight requests, set CORS headers after the chain completes
+        // For non-preflight requests, set CORS headers immediately
+        setCorsHeaders(response, origin);
+
         return chain.filter(exchange)
                 .doOnSuccess(aVoid -> {
-                    // Only set CORS headers if response is not committed
-                    if (!response.isCommitted()) {
-                        setCorsHeaders(response, origin);
-                    } else {
-                        logger.debug("Response already committed, skipping CORS headers for: {}", request.getPath());
-                    }
+                    logger.debug("Request completed successfully for: {}", request.getPath());
                 })
                 .doOnError(throwable -> {
-                    // Set CORS headers even on error if response is not committed
+                    logger.error("Request failed for: {}, error: {}", request.getPath(), throwable.getMessage());
+                    // Ensure CORS headers are set even on error
                     if (!response.isCommitted()) {
                         setCorsHeaders(response, origin);
                     }
@@ -67,13 +66,19 @@ public class CorsGlobalFilter implements GlobalFilter, Ordered {
     private void setCorsHeaders(ServerHttpResponse response, String origin) {
         HttpHeaders headers = response.getHeaders();
 
-        // Determine allowed origin
-        String allowedOrigin = "*";
+        // Determine allowed origin - FIXED LOGIC
+        String allowedOrigin;
         if (origin != null && ALLOWED_ORIGINS.contains(origin)) {
             allowedOrigin = origin;
-        } else if (origin != null && ALLOWED_ORIGINS.isEmpty()) {
-            // If no specific origins configured, allow the requesting origin
-            allowedOrigin = origin;
+            logger.debug("Origin {} is in allowed list, setting as allowed origin", origin);
+        } else if (origin != null && !ALLOWED_ORIGINS.isEmpty()) {
+            // Origin is not in the allowed list and we have a specific list - reject
+            logger.warn("Origin {} is not in allowed origins list: {}", origin, ALLOWED_ORIGINS);
+            allowedOrigin = "null"; // This will effectively deny the request
+        } else {
+            // Fallback - this should rarely be used in production
+            allowedOrigin = "*";
+            logger.debug("Using wildcard origin");
         }
 
         // Set CORS headers only if they don't already exist to avoid duplicates
@@ -86,13 +91,16 @@ public class CorsGlobalFilter implements GlobalFilter, Ordered {
 
         // Set Vary header to handle caching correctly
         setHeaderIfNotExists(headers, HttpHeaders.VARY, "Origin, Access-Control-Request-Method, Access-Control-Request-Headers");
+
+        logger.debug("CORS headers set - Origin: {}, Methods: {}", allowedOrigin, ALLOWED_METHODS);
     }
 
     private void setHeaderIfNotExists(HttpHeaders headers, String headerName, String headerValue) {
         if (!headers.containsKey(headerName)) {
             headers.set(headerName, headerValue);
+            logger.trace("Set header: {} = {}", headerName, headerValue);
         } else {
-            logger.trace("Header {} already exists, skipping", headerName);
+            logger.trace("Header {} already exists with value: {}", headerName, headers.getFirst(headerName));
         }
     }
 
