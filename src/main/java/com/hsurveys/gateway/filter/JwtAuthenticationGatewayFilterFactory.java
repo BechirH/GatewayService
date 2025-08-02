@@ -162,10 +162,18 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
         String body = String.format("{\"error\": \"%s\", \"message\": \"%s\", \"timestamp\": \"%s\"}", 
             status.getReasonPhrase(), message, java.time.Instant.now());
         
-        return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())))
-            .doOnSuccess(v -> logger.debug("Authentication error response sent successfully for: {}", 
-                exchange.getRequest().getURI().getPath()))
-            .doOnError(e -> logger.error("Error sending authentication error response: {}", e.getMessage()));
+        // Use a different approach that doesn't immediately commit the response
+        return Mono.defer(() -> {
+            try {
+                return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())))
+                    .doOnSuccess(v -> logger.debug("Authentication error response sent successfully for: {}", 
+                        exchange.getRequest().getURI().getPath()))
+                    .doOnError(e -> logger.error("Error sending authentication error response: {}", e.getMessage()));
+            } catch (Exception e) {
+                logger.warn("Error writing authentication error response: {}", e.getMessage());
+                return Mono.empty();
+            }
+        });
     }
 
     public static class Config {
