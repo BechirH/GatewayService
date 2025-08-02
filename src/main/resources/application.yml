@@ -19,10 +19,7 @@ spring:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
             - name: JwtAuthentication
-            - name: DedupeResponseHeader
-              args:
-                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
-                strategy: RETAIN_FIRST
+            - name: SafeCors
 
         # Organization Service Routes
         - id: organization-service
@@ -39,10 +36,7 @@ spring:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
             - name: JwtAuthentication
-            - name: DedupeResponseHeader
-              args:
-                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
-                strategy: RETAIN_FIRST
+            - name: SafeCors
 
         # Survey Service Routes
         - id: survey-service
@@ -59,16 +53,14 @@ spring:
                 rate-limiter: "#{@redisRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
             - name: JwtAuthentication
-            - name: DedupeResponseHeader
-              args:
-                name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
-                strategy: RETAIN_FIRST
+            - name: SafeCors
 
-      default-filters:
-        - name: DedupeResponseHeader
-          args:
-            name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
-            strategy: RETAIN_FIRST
+      # Remove default-filters to avoid conflicts with error responses
+      # default-filters:
+      #   - name: DedupeResponseHeader
+      #     args:
+      #       name: Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary
+      #       strategy: RETAIN_FIRST
 
       globalcors:
         cors-configurations:

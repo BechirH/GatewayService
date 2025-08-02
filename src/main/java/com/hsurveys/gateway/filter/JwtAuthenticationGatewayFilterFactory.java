@@ -144,11 +144,28 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
 
     private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
         ServerHttpResponse response = exchange.getResponse();
+        
+        // Check if response is already committed
+        if (response.isCommitted()) {
+            logger.warn("Response already committed, cannot modify headers for: {}", 
+                exchange.getRequest().getURI().getPath());
+            return Mono.empty();
+        }
+        
+        logger.debug("Setting error response for: {} with status: {}", 
+            exchange.getRequest().getURI().getPath(), status);
+        
         response.setStatusCode(status);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json");
+        response.getHeaders().add("X-Error-Type", "AUTHENTICATION_ERROR");
         
-        String body = String.format("{\"error\": \"%s\", \"message\": \"%s\"}", status.getReasonPhrase(), message);
-        return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
+        String body = String.format("{\"error\": \"%s\", \"message\": \"%s\", \"timestamp\": \"%s\"}", 
+            status.getReasonPhrase(), message, java.time.Instant.now());
+        
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())))
+            .doOnSuccess(v -> logger.debug("Authentication error response sent successfully for: {}", 
+                exchange.getRequest().getURI().getPath()))
+            .doOnError(e -> logger.error("Error sending authentication error response: {}", e.getMessage()));
     }
 
     public static class Config {
