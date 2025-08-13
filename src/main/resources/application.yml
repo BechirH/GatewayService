@@ -14,6 +14,7 @@ spring:
               args:
                 name: user-service
                 fallbackUri: forward:/fallback/user-service
+
             - name: RequestRateLimiter
               args:
                 rate-limiter: "#{@redisRateLimiter}"
@@ -48,12 +49,15 @@ spring:
         - id: survey-service
           uri: http://survey-service:8080
           predicates:
-            - Path=/api/surveys/**,/api/questions/**,/api/options/**
+            - Path=/api/surveys/**,/api/questions/**,/api/options/**,/api/survey-response/**,/api/question-response/**,/api/option-responses/**
           filters:
             - name: CircuitBreaker
               args:
                 name: survey-service
                 fallbackUri: forward:/fallback/survey-service
+                ignoreExceptions:
+                  - horizon.surveyservice.exeptions.BadRequestException
+                  - horizon.surveyservice.exeptions.ResourceNotFoundException
             - name: RequestRateLimiter
               args:
                 rate-limiter: "#{@redisRateLimiter}"
