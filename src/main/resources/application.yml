@@ -55,10 +55,9 @@ spring:
               args:
                 name: survey-service
                 fallbackUri: forward:/fallback/survey-service
-                recordExceptions: java.lang.Exception
-                ignoreExceptions:
-                  - horizon.surveyservice.exeptions.BadRequestException
-                  - horizon.surveyservice.exeptions.ResourceNotFoundException
+                statusCodeExceptions:
+                  - 500
+                  - 503
             - name: RequestRateLimiter
               args:
                 rate-limiter: "#{@redisRateLimiter}"
@@ -132,6 +131,9 @@ resilience4j:
         waitDurationInOpenState: 5s
         failureRateThreshold: 50
         eventConsumerBufferSize: 10
+        ignoreExceptions:
+          - "org.springframework.web.server.ResponseStatusException"
+          - "java.lang.IllegalStateException"
 
   timelimiter:
     instances:
