@@ -55,6 +55,7 @@ spring:
               args:
                 name: survey-service
                 fallbackUri: forward:/fallback/survey-service
+                recordExceptions: java.lang.Exception
                 ignoreExceptions:
                   - horizon.surveyservice.exeptions.BadRequestException
                   - horizon.surveyservice.exeptions.ResourceNotFoundException
