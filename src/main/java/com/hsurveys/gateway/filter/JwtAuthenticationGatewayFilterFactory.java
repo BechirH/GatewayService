@@ -13,7 +13,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -144,37 +146,41 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
 
     private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
         ServerHttpResponse response = exchange.getResponse();
-        
+
         // Check if response is already committed
         if (response.isCommitted()) {
-            logger.warn("Response already committed, cannot modify headers for: {}", 
-                exchange.getRequest().getURI().getPath());
+            logger.warn("Response already committed, cannot modify headers for: {}",
+                    exchange.getRequest().getURI().getPath());
             return Mono.empty();
         }
-        
-        logger.debug("Setting error response for: {} with status: {}", 
-            exchange.getRequest().getURI().getPath(), status);
-        
+
+        logger.debug("Setting error response for: {} with status: {}",
+                exchange.getRequest().getURI().getPath(), status);
+
         response.setStatusCode(status);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json");
-        response.getHeaders().add("X-Error-Type", "AUTHENTICATION_ERROR");
-        
-        String body = String.format("{\"error\": \"%s\", \"message\": \"%s\", \"timestamp\": \"%s\"}", 
-            status.getReasonPhrase(), message, java.time.Instant.now());
-        
-        // Use a different approach that doesn't immediately commit the response
-        return Mono.defer(() -> {
-            try {
-                return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())))
-                    .doOnSuccess(v -> logger.debug("Authentication error response sent successfully for: {}", 
+
+        // Build the error body with the same structure as GlobalExceptionHandler
+        Map<String, Object> errorBody = new HashMap<>();
+        errorBody.put("timestamp", java.time.LocalDateTime.now().toString());
+        errorBody.put("status", status.value());
+        errorBody.put("error", status.getReasonPhrase());
+        errorBody.put("message", message);
+
+        String body;
+        try {
+            body = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(errorBody);
+        } catch (Exception e) {
+            body = "{\"timestamp\":\"" + java.time.LocalDateTime.now() + "\",\"status\":500,\"error\":\"Internal Server Error\",\"message\":\"Failed to serialize error body\"}";
+        }
+
+        byte[] bytes = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(bytes)))
+                .doOnSuccess(v -> logger.debug("Authentication error response sent successfully for: {}",
                         exchange.getRequest().getURI().getPath()))
-                    .doOnError(e -> logger.error("Error sending authentication error response: {}", e.getMessage()));
-            } catch (Exception e) {
-                logger.warn("Error writing authentication error response: {}", e.getMessage());
-                return Mono.empty();
-            }
-        });
+                .doOnError(e -> logger.error("Error sending authentication error response: {}", e.getMessage()));
     }
+
 
     public static class Config {
 
