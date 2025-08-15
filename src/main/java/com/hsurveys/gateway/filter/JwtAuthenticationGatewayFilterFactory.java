@@ -147,7 +147,6 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
     private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
         ServerHttpResponse response = exchange.getResponse();
 
-        // Check if response is already committed
         if (response.isCommitted()) {
             logger.warn("Response already committed, cannot modify headers for: {}",
                     exchange.getRequest().getURI().getPath());
@@ -160,18 +159,20 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
         response.setStatusCode(status);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json");
 
-        // Build the error body with the same structure as GlobalExceptionHandler
         Map<String, Object> errorBody = new HashMap<>();
         errorBody.put("timestamp", java.time.LocalDateTime.now().toString());
         errorBody.put("status", status.value());
         errorBody.put("error", status.getReasonPhrase());
         errorBody.put("message", message);
+        errorBody.put("details", ""); // pour correspondre à la structure complète
 
         String body;
         try {
             body = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(errorBody);
         } catch (Exception e) {
-            body = "{\"timestamp\":\"" + java.time.LocalDateTime.now() + "\",\"status\":500,\"error\":\"Internal Server Error\",\"message\":\"Failed to serialize error body\"}";
+            logger.error("Failed to serialize error body", e);
+            body = "{\"timestamp\":\"" + java.time.LocalDateTime.now() + "\",\"status\":500,"
+                    + "\"error\":\"Internal Server Error\",\"message\":\"Failed to serialize error body\",\"details\":\"\"}";
         }
 
         byte[] bytes = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -180,6 +181,7 @@ public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilter
                         exchange.getRequest().getURI().getPath()))
                 .doOnError(e -> logger.error("Error sending authentication error response: {}", e.getMessage()));
     }
+
 
 
     public static class Config {
